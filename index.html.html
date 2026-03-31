@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>역사 탐험대: 삼국·가야 퀘스트</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Jua',sans-serif;background:#0a1a0a;color:#1a1a1a;touch-action:manipulation;overscroll-behavior:none;}
+button{font-family:'Jua',sans-serif;}
+
+/* ── 화면 전환 ── */
+.screen{position:absolute;inset:0;display:none;overflow:hidden;}
+.screen.active{display:block;}
+
+/* ── 시작화면 ── */
+#startScreen{background:linear-gradient(180deg,#0a1a0a 0%,#1a3a0a 60%,#2a5a1a 100%);}
+.start-ui{position:relative;z-index:20;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px;}
+.start-card{background:rgba(240,248,228,0.96);border:3px solid #4a8a2a;border-radius:14px;padding:20px;width:min(540px,96vw);box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.game-title{font-size:clamp(22px,5vw,36px);color:#1a1a1a;text-align:center;line-height:1.3;margin-bottom:8px;}
+.game-sub{font-size:clamp(13px,2.5vw,16px);color:#2a4a1a;text-align:center;line-height:1.6;margin-bottom:14px;word-break:keep-all;}
+.mission-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.mq{background:#fff;border:2px solid #6aaa3a;border-radius:8px;padding:10px;font-size:clamp(12px,2vw,14px);line-height:1.5;color:#1a1a1a;}
+.mq strong{color:#2a6a0a;}
+.start-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.btn-start{background:linear-gradient(180deg,#ffdd72,#ffc53b);color:#5f4100;border:none;border-radius:12px;padding:14px 28px;font-size:clamp(16px,3vw,20px);font-family:'Jua',sans-serif;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);min-height:48px;min-width:120px;touch-action:manipulation;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;}
+.btn-help{background:#fff;color:#1a1a1a;border:2px solid #4a8a2a;border-radius:12px;padding:14px 20px;font-size:clamp(14px,2.5vw,18px);font-family:'Jua',sans-serif;font-weight:700;cursor:pointer;min-height:48px;touch-action:manipulation;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;}
+.nation-tags{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.ntag{background:rgba(240,248,228,0.9);border:2px solid #4a8a2a;border-radius:6px;padding:6px 12px;font-size:14px;color:#1a1a1a;font-family:'Jua',sans-serif;animation:bob 2s ease-in-out infinite;}
+.ntag:nth-child(2){animation-delay:.3s;}.ntag:nth-child(3){animation-delay:.6s;}.ntag:nth-child(4){animation-delay:.9s;}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* ── 게임화면 ── */
+#gameScreen{background:#3a6e22;}
+#gameCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated;}
+.hud{position:absolute;top:8px;left:8px;right:8px;display:grid;grid-template-columns:1fr auto;gap:8px;z-index:10;pointer-events:none;}
+.hud-panel{background:rgba(255,255,255,0.95);border:2px solid #4a8a2a;border-radius:12px;padding:10px 12px;pointer-events:auto;}
+.hud-goal{font-size:clamp(12px,2.5vw,15px);color:#1a1a1a;line-height:1.4;}
+.hud-right{display:flex;flex-direction:column;gap:6px;pointer-events:auto;}
+.frag-row{display:flex;gap:5px;}
+.frag{width:26px;height:26px;border-radius:6px;background:#ddd;border:2px solid #fff;}
+.frag.on{background:linear-gradient(180deg,#ffe878,#ffcc00);box-shadow:0 0 8px rgba(255,200,0,0.5);}
+.btn-mute{background:#fff;border:2px solid #4a8a2a;border-radius:8px;padding:4px 8px;font-size:12px;font-family:'Jua',sans-serif;cursor:pointer;min-height:32px;}
+.quest-chips{display:flex;flex-direction:column;gap:3px;margin-top:4px;}
+.qchip{font-size:11px;display:flex;justify-content:space-between;align-items:center;padding:2px 6px;background:#f0f8e8;border:1px solid #4a8a2a;border-radius:6px;}
+.qchip.done{background:#e0f8e0;border-color:#2a8a2a;}
+.tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(240,248,228,0.95);border:2px solid #4a8a2a;border-radius:10px;padding:8px 14px;font-size:clamp(12px,2.5vw,15px);white-space:nowrap;z-index:10;max-width:95vw;overflow:hidden;text-overflow:ellipsis;}
+
+/* ── 모달 ── */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;padding:12px;z-index:30;overflow-y:auto;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:16px;padding:18px;width:min(600px,96vw);max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 12px 40px rgba(0,0,0,0.35);position:relative;}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.modal-title{font-size:clamp(18px,4vw,24px);color:#1a1a1a;line-height:1.3;}
+.modal-sub{font-size:13px;color:#4a6a2a;margin-top:2px;}
+.npc-box{background:#f0f8e8;border:2px solid #6aaa3a;border-radius:10px;padding:12px;font-size:clamp(13px,2.5vw,15px);line-height:1.6;margin-bottom:14px;color:#1a1a1a;word-break:keep-all;}
+.q-title{font-size:clamp(16px,3.5vw,20px);font-weight:700;color:#1a1a1a;margin-bottom:12px;line-height:1.4;word-break:keep-all;}
+.choices{display:flex;flex-direction:column;gap:8px;}
+.choice-btn{background:#f8f8f8;border:2px solid #ccc;border-radius:10px;padding:14px 16px;font-size:clamp(14px,3vw,17px);font-family:'Jua',sans-serif;text-align:left;cursor:pointer;min-height:50px;color:#1a1a1a;transition:background 0.1s;}
+.choice-btn:active{background:#e8f8e0;}
+.feedback{margin-top:12px;padding:12px;border-radius:10px;font-size:clamp(13px,2.5vw,15px);display:none;word-break:keep-all;line-height:1.5;}
+.feedback.ok{display:block;background:#e0f8e0;border:2px solid #4a8a2a;color:#1a5a1a;}
+.feedback.ng{display:block;background:#fff0f0;border:2px solid #e05050;color:#8a0000;}
+.modal-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.btn-modal-ok{background:linear-gradient(180deg,#ffdd72,#ffc53b);color:#5f4100;border:none;border-radius:10px;padding:13px 22px;font-size:clamp(14px,3vw,17px);font-family:'Jua',sans-serif;cursor:pointer;min-height:48px;}
+.btn-modal-sub{background:#fff;color:#1a1a1a;border:2px solid #ccc;border-radius:10px;padding:13px 18px;font-size:clamp(14px,3vw,17px);font-family:'Jua',sans-serif;cursor:pointer;min-height:48px;}
+
+/* ── 지도문제 ── */
+.minimap{width:100%;aspect-ratio:1.6;background:linear-gradient(180deg,#b8e0f8,#e8f8f0 40%,#c8e8a0 40%,#a0c870 100%);border-radius:12px;border:2px solid #4a8a2a;position:relative;overflow:hidden;margin-bottom:12px;}
+.region-btn{position:absolute;background:rgba(255,255,255,0.92);border:2px solid #4a8a2a;border-radius:20px;padding:8px 14px;font-family:'Jua',sans-serif;font-size:clamp(13px,2.5vw,15px);cursor:pointer;color:#1a1a1a;min-height:40px;}
+.region-btn:active{background:#e0f8e0;}
+
+/* ── 연결문제 ── */
+.match-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.match-col h4{font-size:14px;color:#1a1a1a;margin-bottom:8px;text-align:center;}
+.card-item{background:linear-gradient(180deg,#fff8c0,#ffe060);border:2px solid #ccaa00;border-radius:10px;padding:12px;font-size:clamp(13px,2.5vw,15px);cursor:pointer;margin-bottom:8px;text-align:center;min-height:48px;display:flex;align-items:center;justify-content:center;color:#1a1a1a;transition:outline 0.1s;}
+.card-item.selected{outline:3px solid #ff8800;background:linear-gradient(180deg,#ffee88,#ffcc00);}
+.card-item.used{opacity:0.4;}
+.zone-item{background:#f8f8f8;border:2px dashed #aaa;border-radius:10px;padding:12px;font-size:clamp(13px,2.5vw,15px);cursor:pointer;margin-bottom:8px;text-align:center;min-height:48px;display:flex;align-items:center;justify-content:center;color:#1a1a1a;}
+.zone-item.filled{background:#e0f8e0;border:2px solid #4a8a2a;}
+.zone-item:active{background:#d0f0d0;}
+
+/* ── 결과화면 ── */
+#resultScreen{background:linear-gradient(180deg,#7dc9ff,#d8f3ff 55%,#dff1c6 55%,#b3d985 100%);overflow-y:auto;padding:20px;}
+.result-card{background:rgba(255,255,255,0.96);border:3px solid #4a8a2a;border-radius:14px;padding:20px;max-width:540px;margin:0 auto;}
+.result-title{font-size:clamp(22px,5vw,32px);color:#1a1a1a;text-align:center;margin-bottom:8px;}
+.result-sub{font-size:clamp(13px,2.5vw,16px);color:#2a4a1a;text-align:center;margin-bottom:16px;line-height:1.6;word-break:keep-all;}
+.book{background:linear-gradient(180deg,#fff8c0,#ffdd60);border:3px solid #ccaa00;border-radius:12px;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.page{background:rgba(255,255,255,0.9);border:2px dashed #ccaa00;border-radius:8px;padding:12px;text-align:center;font-size:clamp(12px,2.5vw,15px);color:#1a1a1a;line-height:1.5;}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.sum-item{background:#f0f8e8;border:2px solid #6aaa3a;border-radius:10px;padding:12px;font-size:clamp(12px,2vw,14px);line-height:1.6;color:#1a1a1a;}
+
+/* ── 스파클 ── */
+.sparkle{position:fixed;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle,#fff,#ffdd00 60%,transparent);pointer-events:none;animation:sp 0.9s linear forwards;z-index:999;}
+@keyframes sp{0%{transform:translateY(0) scale(0.5);opacity:1}100%{transform:translateY(-50px) scale(1.4);opacity:0}}
+
+@media(max-width:430px){
+  .mission-grid{grid-template-columns:1fr;}
+  .match-grid{grid-template-columns:1fr;}
+  .summary-grid{grid-template-columns:1fr;}
+  .book{grid-template-columns:1fr;}
+  .start-card{padding:14px;}
+}
+</style>
+</head>
+<body>
+<div id="startScreen" class="screen active">
+  <div class="start-ui">
+    <div class="nation-tags">
+      <span class="ntag">고구려</span>
+      <span class="ntag">백제</span>
+      <span class="ntag">신라</span>
+      <span class="ntag">가야</span>
+    </div>
+    <div class="start-card">
+      <div class="game-title">⚔️ 역사 탐험대<br>삼국·가야 퀘스트</div>
+      <div class="game-sub">서기 400년, 역사 기록이 뒤섞여 버렸습니다!<br>4개의 퀘스트를 해결해 역사를 복원하세요.</div>
+      <div class="mission-grid">
+        <div class="mq"><strong>Q1.</strong> 나라의 탄생을 찾아라<br>건국 이야기 · 위치</div>
+        <div class="mq"><strong>Q2.</strong> 왕의 참모가 되어라<br>율령 · 왕권 · 중앙집권</div>
+        <div class="mq"><strong>Q3.</strong> 한강을 차지하라<br>전성기 · 지도 · 한강 유역</div>
+        <div class="mq"><strong>Q4.</strong> 유물의 주인을 밝혀라<br>유물 · 생활 모습</div>
+      </div>
+      <div class="start-btns">
+        <button class="btn-start" onclick="startGame()" ontouchstart="startGame()">🎮 게임 시작</button>
+        <button class="btn-help" onclick="showHelp()" ontouchstart="showHelp()">❓ 조작 방법</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="gameScreen" class="screen">
+  <canvas id="gameCanvas"></canvas>
+  <div class="hud">
+    <div class="hud-panel">
+      <div class="hud-goal" id="goalText">퀘스트 지점으로 이동하세요.</div>
+      <div class="quest-chips" id="questChips"></div>
+    </div>
+    <div class="hud-right">
+      <div class="frag-row" id="fragRow"></div>
+      <button class="btn-mute" onclick="toggleMute()" id="muteBtn">🔊</button>
+    </div>
+  </div>
+  <div class="tip" id="tip">화면을 터치해 캐릭터를 이동하세요</div>
+</div>
+
+<div id="resultScreen" class="screen">
+  <div class="result-card">
+    <div class="result-title">🏆 역사 복원 성공!</div>
+    <div class="result-sub">4개의 역사 기록 조각이 모두 모여<br>두루마리가 완성되었습니다!</div>
+    <div class="book">
+      <div class="page">📜 Q1<br>건국·위치</div>
+      <div class="page">📜 Q2<br>율령·왕권</div>
+      <div class="page">📜 Q3<br>전성기·한강</div>
+      <div class="page">📜 Q4<br>유물·생활</div>
+    </div>
+    <div class="summary-grid">
+      <div class="sum-item"><strong>① 나라의 성립</strong><br>고구려·백제·신라·가야는 각기 다른 지역에서 나라를 세웠습니다.</div>
+      <div class="sum-item"><strong>② 나라 다스리기</strong><br>율령을 만들고 왕의 힘을 키워 나라를 체계적으로 다스렸습니다.</div>
+      <div class="sum-item"><strong>③ 한강의 중요성</strong><br>한강 유역은 교통과 물자에 유리해 여러 나라가 중요하게 여겼습니다.</div>
+      <div class="sum-item"><strong>④ 유물과 생활</strong><br>유물은 그 시대 사람들의 생활과 문화를 알려 줍니다.</div>
+    </div>
+    <div style="text-align:center;">
+      <button class="btn-start" onclick="restartGame()" ontouchstart="restartGame()">🔄 다시하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 모달 -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)" ontouchstart="overlayClick(event)">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// 상태
+// ═══════════════════════════════════════════
+const G = {
+  screen: 'start',
+  muted: false,
+  completedCount: 0,
+  popupLocked: false,
+  player: { x: 0.12, y: 0.72, tx: 0.12, ty: 0.72 },
+  drag: false,
+  quests: [
+    {
+      id:'q1', title:'Q1. 나라의 탄생을 찾아라', sub:'건국 이야기 · 위치',
+      npc:'지도 수호자', x:0.18, y:0.30, color:'#6f88ff', done:false, step:0,
+      qs:[
+        {type:'choice', q:'주몽의 건국 이야기와 관련 있는 나라는?',
+         c:['고구려','백제','신라'], a:0, fb:'맞아요! 주몽이 세운 나라는 고구려예요.'},
+        {type:'map', q:'고구려가 자리 잡고 성장한 위치를 눌러 보세요.',
+         a:'north', fb:'좋아요! 고구려는 북쪽 지역을 중심으로 성장했어요.'},
+        {type:'choice', q:'백제와 신라는 주로 어느 쪽에서 성장했을까요?',
+         c:['남쪽 지역','북쪽 지역','바다 한가운데'], a:0, fb:'정답! 백제와 신라는 남쪽 지역 중심이에요.'}
+      ]
+    },
+    {
+      id:'q2', title:'Q2. 왕의 참모가 되어라', sub:'율령 · 왕권 강화 · 중앙집권',
+      npc:'궁궐 기록관', x:0.78, y:0.28, color:'#8e69ff', done:false, step:0,
+      qs:[
+        {type:'choice', q:'율령을 만든 까닭으로 알맞은 것은?',
+         c:['나라를 법으로 다스리려고','춤 대회를 열려고','왕궁을 꾸미려고'], a:0, fb:'맞아요! 율령은 나라를 법으로 다스리기 위해 만들었어요.'},
+        {type:'truefalse', q:'왕권이 강해진다는 것은 왕이 나라를 이끄는 힘이 커진다는 뜻이에요.',
+         a:true, fb:'정답! 왕권 강화는 왕의 힘이 커지는 것이에요.'},
+        {type:'choice', q:'나라를 체계적으로 다스리는 흐름은?',
+         c:['왕권 강화 → 율령 마련 → 체계적 통치','율령 마련 → 왕권 강화 → 통치','축제 → 율령 → 휴식'], a:1, fb:'좋아요! 왕권을 키우고 율령을 마련해 나라를 다스렸어요.'}
+      ]
+    },
+    {
+      id:'q3', title:'Q3. 한강을 차지하라', sub:'전성기 · 지도 · 한강 유역',
+      npc:'전략 안내자', x:0.22, y:0.78, color:'#2bb673', done:false, step:0,
+      qs:[
+        {type:'choice', q:'한강 유역이 중요한 까닭은?',
+         c:['교통과 물자 이동에 유리해서','항상 눈이 내려서','산이 없어서'], a:0, fb:'맞아요! 한강 유역은 교통과 물자에 유리한 요충지였어요.'},
+        {type:'map', q:'지도에서 한강 유역에 가장 가까운 곳을 눌러 보세요.',
+         a:'middle', fb:'좋아요! 한강 유역은 삼국이 중요하게 여긴 가운데 지역이에요.'},
+        {type:'choice', q:'삼국이 전성기에 중요한 지역을 차지하려 한 까닭은?',
+         c:['나라의 힘을 키우기 위해','바람 소리를 듣기 위해','낮잠을 자기 위해'], a:0, fb:'정답! 중요 지역을 차지하면 나라의 힘이 커졌어요.'}
+      ]
+    },
+    {
+      id:'q4', title:'Q4. 유물의 주인을 밝혀라', sub:'유물 · 생활 모습',
+      npc:'유물 연구원', x:0.76, y:0.78, color:'#ff9b45', done:false, step:0,
+      qs:[
+        {type:'match',
+         q:'유물 이름을 알맞은 나라와 연결해 보세요.\n카드를 탭한 뒤 나라 상자를 탭하세요.',
+         pairs:[{label:'금관',answer:'가야'},{label:'철기 문화',answer:'신라'},{label:'고분 벽화',answer:'고구려'}],
+         targets:['고구려','신라','가야'],
+         fb:'잘했어요! 유물은 그 나라의 문화와 생활을 알려 줍니다.'},
+        {type:'choice', q:'유물을 통해 알 수 있는 것은?',
+         c:['옛사람들의 생활과 문화','내일의 날씨','게임 점수'], a:0, fb:'맞아요! 유물은 옛사람들의 생활과 문화를 알려 줍니다.'}
+      ]
+    }
+  ]
+};
+
+// ═══════════════════════════════════════════
+// 유틸
+// ═══════════════════════════════════════════
+function $(id){ return document.getElementById(id); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function dist(ax,ay,bx,by){ return Math.sqrt((ax-bx)**2+(ay-by)**2); }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(name+'Screen').classList.add('active');
+  G.screen=name;
+}
+
+// ═══════════════════════════════════════════
+// 음악 (Web Audio)
+// ═══════════════════════════════════════════
+let AC=null, bgmTimer=null, quizTimer=null;
+let bgmOscs=[], quizOscs=[], bgmOn=false, quizOn=false;
+
+function getAC(){
+  if(!AC){ const C=window.AudioContext||window.webkitAudioContext; if(C) AC=new C(); }
+  if(AC && AC.state==='suspended') AC.resume();
+  return AC;
+}
+
+function makeRev(ac,s,d){
+  const len=ac.sampleRate*s, buf=ac.createBuffer(2,len,ac.sampleRate);
+  for(let c=0;c<2;c++){ const dd=buf.getChannelData(c); for(let i=0;i<len;i++) dd[i]=(Math.random()*2-1)*Math.pow(1-i/len,d); }
+  const cv=ac.createConvolver(); cv.buffer=buf; return cv;
+}
+
+function note(ac,dest,rev,f,t0,dur,vol,wave){
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type=wave; o.frequency.value=f;
+  const atk=Math.min(0.08,dur*0.12), rel=Math.min(0.25,dur*0.35);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(vol,t0+atk);
+  g.gain.setValueAtTime(vol,t0+dur-rel);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g); g.connect(dest); if(rev) g.connect(rev);
+  o.start(t0); o.stop(t0+dur+0.1); return o;
+}
+
+function stopOscs(arr){ arr.forEach(o=>{ try{o.stop();}catch(e){} }); arr.length=0; }
+
+// 타이틀 BGM — 사극 오프닝 풍, 웅장하고 느림
+function playBGM(){
+  if(bgmOn||G.muted) return;
+  const ac=getAC(); if(!ac) return;
+  bgmOn=true;
+  const master=ac.createGain(); master.gain.value=0.26; master.connect(ac.destination);
+  const rev=makeRev(ac,4.0,1.6);
+  const rg=ac.createGain(); rg.gain.value=0.38; rev.connect(rg); rg.connect(master);
+  const now=ac.currentTime, B=60/56;
+  // G 궁조 멜로디 (대금 느낌)
+  const mel=[
+    [196,0,3,0.70],[220,3.5,1.5,0.60],[261.6,5.5,2.5,0.72],[293.7,8.5,2,0.75],
+    [329.6,11,3.5,0.78],[261.6,15,2,0.65],[293.7,18,2,0.72],[392,20.5,2.5,0.82],
+    [440,23.5,2,0.80],[523.3,26,3,0.88],[587.3,29.5,4,0.95],[523.3,34,1.5,0.82],
+    [440,36,2,0.75],[392,38.5,2,0.70],[329.6,41,2.5,0.60],[261.6,44,2,0.52],
+    [220,46.5,2.5,0.45],[196,49.5,6,0.50]
+  ];
+  // 가야금 화음
+  const harm=[
+    [98,0,8,0.28],[130.8,8,8,0.26],[146.8,16,6,0.30],[196,22,8,0.33],
+    [220,30,6,0.36],[196,36,7,0.28],[130.8,43,13,0.23]
+  ];
+  // 저음 드론
+  const drone=[[49,0,28,0.18],[65.4,28,28,0.20]];
+  // 장구 타점
+  const totalB=56;
+  mel.forEach(([f,t,d,v])=>{ bgmOscs.push(note(ac,master,rev,f,now+t*B,d*B,v*0.62,'triangle')); });
+  harm.forEach(([f,t,d,v])=>{ bgmOscs.push(note(ac,master,rg,f,now+t*B,d*B,v*0.48,'sine')); });
+  drone.forEach(([f,t,d,v])=>{ bgmOscs.push(note(ac,master,null,f,now+t*B,d*B,v*0.42,'sawtooth')); });
+  for(let i=0;i<totalB;i+=2){
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sawtooth'; o.frequency.value=i%4===0?90:110;
+    const pt=now+i*B;
+    g.gain.setValueAtTime(i%4===0?0.10:0.05,pt);
+    g.gain.exponentialRampToValueAtTime(0.0001,pt+0.10);
+    o.connect(g); g.connect(master); o.start(pt); o.stop(pt+0.12);
+    bgmOscs.push(o);
+  }
+  bgmTimer=setTimeout(()=>{ bgmOn=false; bgmOscs=[]; if(!G.muted) playBGM(); }, totalB*B*1000+500);
+}
+
+function stopBGM(){ bgmOn=false; clearTimeout(bgmTimer); stopOscs(bgmOscs); }
+
+// 퀴즈 BGM — 동물의숲 풍, 잔잔하고 밝음
+function playQuizBGM(){
+  if(quizOn||G.muted) return;
+  const ac=getAC(); if(!ac) return;
+  quizOn=true;
+  const master=ac.createGain(); master.gain.value=0.09; master.connect(ac.destination);
+  const rev=makeRev(ac,1.8,2.8);
+  const rg=ac.createGain(); rg.gain.value=0.28; rev.connect(rg); rg.connect(master);
+  const now=ac.currentTime, B=60/100;
+  // C 장조 실로폰 멜로디
+  const mel2=[
+    [523.3,0,0.8,0.70],[587.3,1,0.8,0.65],[659.3,2,0.8,0.72],[523.3,3,1.5,0.68],
+    [659.3,5,0.8,0.70],[698.5,6,0.8,0.72],[784,7,1.5,0.75],
+    [784,9,0.6,0.65],[698.5,10,0.6,0.60],[659.3,11,0.6,0.65],[587.3,12,0.6,0.60],[523.3,13,2,0.68],
+    [659.3,16,0.8,0.65],[784,17,0.8,0.70],[880,18,1.5,0.72],
+    [784,20,0.8,0.68],[698.5,21,0.8,0.62],[659.3,22,0.8,0.60],[523.3,23,2.5,0.65],
+    [587.3,26,0.8,0.58],[523.3,27,0.8,0.55],[493.9,28,0.8,0.52],[523.3,29,4,0.60]
+  ];
+  const harm2=[
+    [261.6,0,4,0.28],[329.6,0,4,0.22],[392,0,4,0.20],
+    [261.6,4,4,0.26],[349.2,4,4,0.20],[392,4,4,0.18],
+    [261.6,8,4,0.28],[329.6,8,4,0.22],[392,8,4,0.20],
+    [293.7,12,4,0.23],[349.2,12,4,0.18],
+    [440,16,4,0.26],[349.2,20,4,0.22],[261.6,24,9,0.26],[329.6,24,9,0.20]
+  ];
+  const bass2=[
+    [130.8,0,0.4,0.38],[130.8,2,0.4,0.32],[130.8,4,0.4,0.36],[174.6,4,0.4,0.30],
+    [130.8,8,0.4,0.36],[130.8,10,0.4,0.30],[146.8,12,0.4,0.32],
+    [174.6,16,0.4,0.32],[130.8,20,0.4,0.30],[130.8,24,0.4,0.35],[130.8,28,0.5,0.32]
+  ];
+  const totalB2=33;
+  mel2.forEach(([f,t,d,v])=>{ quizOscs.push(note(ac,master,rev,f,now+t*B,d*B,v*0.62,'sine')); });
+  harm2.forEach(([f,t,d,v])=>{ quizOscs.push(note(ac,master,rg,f,now+t*B,d*B,v*0.48,'triangle')); });
+  bass2.forEach(([f,t,d,v])=>{ quizOscs.push(note(ac,master,null,f,now+t*B,d*B,v*0.42,'sine')); });
+  quizTimer=setTimeout(()=>{ quizOn=false; quizOscs=[]; if(!G.muted) playQuizBGM(); }, totalB2*B*1000+400);
+}
+
+function stopQuizBGM(){ quizOn=false; clearTimeout(quizTimer); stopOscs(quizOscs); }
+
+function beep(f,d,type,v){
+  if(G.muted) return;
+  const ac=getAC(); if(!ac) return;
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type=type; o.frequency.value=f; g.gain.value=v;
+  o.connect(g); g.connect(ac.destination); o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+d); o.stop(ac.currentTime+d);
+}
+function playOK(){ beep(523,0.08,'triangle',0.04); setTimeout(()=>beep(659,0.1,'triangle',0.04),70); setTimeout(()=>beep(784,0.14,'triangle',0.04),140); }
+function playNG(){ beep(220,0.08,'sawtooth',0.03); setTimeout(()=>beep(185,0.12,'sawtooth',0.03),60); }
+
+function toggleMute(){
+  G.muted=!G.muted;
+  $('muteBtn').textContent=G.muted?'🔇':'🔊';
+  if(G.muted){ stopBGM(); stopQuizBGM(); }
+  else {
+    if(G.screen==='start') playBGM();
+    if(document.getElementById('overlay').classList.contains('show')) playQuizBGM();
+  }
+}
+
+// ═══════════════════════════════════════════
+// 시작화면 픽셀아트 배경 캔버스
+// ═══════════════════════════════════════════
+let titleRAF=null;
+function startTitleBg(){ /* CSS background only */ }
+
+function stopTitleBg(){ if(titleRAF){ cancelAnimationFrame(titleRAF); titleRAF=null; } }
+
+// ═══════════════════════════════════════════
+// 게임 캔버스
+// ═══════════════════════════════════════════
+const cv=$('gameCanvas');
+const cx=cv.getContext('2d');
+let CW=0,CH=0;
+const TILE=16;
+let mapCols=0, mapRows=0, mapData=[];
+
+function resizeCv(){
+  const r=window.devicePixelRatio||1;
+  CW=cv.clientWidth=cv.parentElement.clientWidth;
+  CH=cv.clientHeight=cv.parentElement.clientHeight;
+  cv.width=Math.floor(CW*r); cv.height=Math.floor(CH*r);
+  cx.setTransform(r,0,0,r,0,0);
+  mapCols=0; // 맵 재생성
+}
+
+function buildMap(){
+  mapCols=Math.ceil(CW/TILE)+2; mapRows=Math.ceil(CH/TILE)+2;
+  mapData=[];
+  for(let r=0;r<mapRows;r++){ mapData[r]=[]; for(let c=0;c<mapCols;c++) mapData[r][c]=0; }
+  const r1=Math.floor(mapRows*0.38), r2=Math.floor(mapRows*0.46);
+  for(let r=r1;r<=r2;r++) for(let c=0;c<mapCols;c++) mapData[r][c]=2;
+  if(mapData[r1-1]) for(let c=0;c<mapCols;c++) mapData[r1-1][c]=3;
+  if(mapData[r2+1]) for(let c=0;c<mapCols;c++) mapData[r2+1][c]=3;
+  const pts=[[0,Math.floor(mapRows*0.85)],[Math.floor(mapCols*0.22),Math.floor(mapRows*0.68)],
+             [Math.floor(mapCols*0.5),Math.floor(mapRows*0.60)],[Math.floor(mapCols*0.75),Math.floor(mapRows*0.52)],[mapCols-1,Math.floor(mapRows*0.38)]];
+  for(let i=0;i<pts.length-1;i++){
+    let [c0,r0]=pts[i],[c1,r1s]=pts[i+1];
+    const steps=Math.max(Math.abs(c1-c0),Math.abs(r1s-r0));
+    for(let s=0;s<=steps;s++){
+      const c=Math.round(c0+(c1-c0)*s/steps), r=Math.round(r0+(r1s-r0)*s/steps);
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) if(mapData[r+dr]&&mapData[r+dr][c+dc]!==2) mapData[r+dr][c+dc]=1;
+    }
+  }
+}
+
+function P(x,y,w,h,col){ cx.fillStyle=col; cx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
+
+function drawTile(c,r){
+  const x=c*TILE, y=r*TILE, t=mapData[r]?mapData[r][c]:0;
+  if(t===0){
+    const s=(c*7+r*13)%9;
+    P(x,y,TILE,TILE,s<3?'#4a9030':'#529838');
+    P(x,y,TILE,1,'#5aaa38'); P(x,y,1,TILE,'#5aaa38');
+    if(s===0){ P(x+3,y+4,1,3,'#68c040'); P(x+9,y+7,1,3,'#68c040'); }
+  } else if(t===1){
+    P(x,y,TILE,TILE,'#c8965a'); P(x,y,TILE,1,'#d9a96a'); P(x,y,1,TILE,'#d9a96a');
+  } else if(t===2){
+    const w=Math.sin(Date.now()/800+c*0.7+r*0.5)>0;
+    P(x,y,TILE,TILE,w?'#3a8fd4':'#2e7ec4');
+    P(x+2,y+5,6,1,'rgba(255,255,255,0.22)');
+  } else {
+    P(x,y,TILE,TILE,'#8a8070'); P(x,y,TILE,1,'#9a9080');
+    P(x+3,y+3,6,5,'#7a7060');
+  }
+}
+
+function drawTree(x,y,s){
+  s=s||0.6;
+  const b=Math.round;
+  P(b(x-6*s),b(y+18*s),b(12*s),b(4*s),'rgba(0,0,0,0.18)');
+  P(b(x-2*s),b(y+6*s),b(4*s),b(14*s),'#6a4820');
+  P(b(x-9*s),b(y+4*s),b(18*s),b(6*s),'#246018'); P(b(x-7*s),b(y+2*s),b(14*s),b(4*s),'#246018');
+  P(b(x-6*s),b(y-4*s),b(12*s),b(8*s),'#2e7820'); P(b(x-4*s),b(y-6*s),b(8*s),b(4*s),'#2e7820');
+  P(b(x-4*s),b(y-12*s),b(8*s),b(8*s),'#3a9028'); P(b(x-2*s),b(y-14*s),b(4*s),b(4*s),'#3a9028');
+  P(b(x-4*s),b(y-2*s),b(3*s),b(3*s),'#48b030');
+}
+
+function drawBuilding(q,idx){
+  const x=q.x*CW, y=q.y*CH, col=q.color;
+  const pulse=1+Math.sin(Date.now()/320+idx)*0.07;
+  if(!q.done){
+    cx.globalAlpha=0.12+Math.abs(Math.sin(Date.now()/400+idx))*0.10;
+    cx.beginPath(); cx.arc(x,y,34*pulse,0,Math.PI*2); cx.fillStyle=col; cx.fill();
+    cx.globalAlpha=1;
+  }
+  P(x-14,y+3,28,5,'rgba(0,0,0,0.18)');
+  const wc=q.done?'#fff3b0':'#f0e0c0', rc=q.done?'#d4a000':col;
+  P(x-12,y+2,24,18,wc); cx.strokeStyle='#8a6a3a'; cx.lineWidth=2; cx.strokeRect(x-12,y+2,24,18);
+  cx.fillStyle=rc; cx.beginPath(); cx.moveTo(x,y-12); cx.lineTo(x-16,y+4); cx.lineTo(x+16,y+4); cx.closePath(); cx.fill();
+  cx.strokeStyle=q.done?'#806000':col; cx.lineWidth=1.5; cx.stroke();
+  P(x-4,y+10,8,10,q.done?'#c8960a':'#8a5a2e');
+  cx.fillStyle=q.done?'#ffd700':'#fff';
+  cx.font='bold 13px Jua,sans-serif'; cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillText(q.done?'✓':String(idx+1),x,y-1);
+  const lbl=q.title.replace(/^Q\d\.\s/,'');
+  cx.font='bold 12px Jua,sans-serif';
+  const lw=cx.measureText(lbl).width+14;
+  P(x-lw/2,y-36,lw,18,'rgba(0,0,0,0.75)');
+  P(x-lw/2,y-36,lw,2,q.done?'#ffd700':col);
+  cx.fillStyle=q.done?'#ffd700':'#fff'; cx.textBaseline='middle';
+  cx.fillText(lbl,x,y-27);
+}
+
+function drawPlayer(){
+  const px=G.player.x*CW, py=G.player.y*CH;
+  const mv=dist(G.player.x,G.player.y,G.player.tx,G.player.ty)>0.005;
+  const st=Math.floor(Date.now()/160)%4, lo=(mv&&(st===0||st===2))?2:0;
+  const b=Math.round;
+  cx.globalAlpha=0.20; cx.beginPath(); cx.ellipse(b(px),b(py+22),12,5,0,0,Math.PI*2); cx.fillStyle='#000'; cx.fill(); cx.globalAlpha=1;
+  P(b(px-7),b(py+10+lo),6,12,'#2244aa'); P(b(px+1),b(py+10-lo),6,12,'#2244aa');
+  P(b(px-8),b(py+20+lo),7,4,'#332211'); P(b(px),b(py+20-lo),7,4,'#332211');
+  P(b(px-9),b(py-6),18,18,'#2e7a40'); P(b(px-9),b(py-6),3,18,'rgba(255,255,255,0.22)');
+  P(b(px-3),b(py-6),6,5,'#ffd040');
+  P(b(px-14),b(py-4),5,12,'#2e7a40'); P(b(px+9),b(py-4),5,12,'#2e7a40');
+  P(b(px-8),b(py-22),16,14,'#ffe0b0'); P(b(px-8),b(py-22),3,14,'rgba(255,255,255,0.25)');
+  cx.strokeStyle='#c8946a'; cx.lineWidth=1; cx.strokeRect(b(px-8),b(py-22),16,14);
+  P(b(px-8),b(py-22),16,5,'#221100'); P(b(px-10),b(py-20),4,8,'#221100'); P(b(px+6),b(py-20),4,8,'#221100');
+  P(b(px-2),b(py-28),4,6,'#221100');
+  P(b(px-5),b(py-14),2,2,'#222'); P(b(px+3),b(py-14),2,2,'#222');
+  P(b(px-4),b(py-15),1,1,'#fff'); P(b(px+4),b(py-15),1,1,'#fff');
+}
+
+const TREES=[[0.06,0.28,1.1],[0.14,0.24,0.85],[0.32,0.22,1.2],[0.58,0.20,0.9],
+  [0.72,0.25,1.0],[0.88,0.22,0.8],[0.04,0.60,0.9],[0.09,0.66,0.75],
+  [0.38,0.68,1.0],[0.60,0.72,0.85],[0.82,0.62,0.95],[0.92,0.70,0.8],
+  [0.47,0.28,0.9],[0.95,0.35,1.05],[0.25,0.35,0.7],[0.52,0.55,0.8]];
+const ROCKS=[[0.18,0.56],[0.65,0.30],[0.80,0.68],[0.28,0.80]];
+
+function drawWorld(){
+  cx.clearRect(0,0,CW,CH);
+  if(!mapCols) buildMap();
+  for(let r=0;r<mapRows;r++) for(let c=0;c<mapCols;c++) drawTile(c,r);
+  TREES.forEach(([rx,ry,s])=>drawTree(rx*CW,ry*CH,s*0.6));
+  ROCKS.forEach(([rx,ry])=>{
+    P(rx*CW-8,ry*CH+4,16,4,'rgba(0,0,0,0.15)');
+    P(rx*CW-8,ry*CH-2,16,10,'#7a7060'); P(rx*CW-6,ry*CH-6,12,8,'#8a8070');
+    P(rx*CW-4,ry*CH-8,8,4,'#9a9080'); P(rx*CW-4,ry*CH-6,3,3,'#aaa090');
+  });
+  G.quests.forEach((q,i)=>drawBuilding(q,i));
+  drawPlayer();
+}
+
+// ═══════════════════════════════════════════
+// 플레이어 이동
+// ═══════════════════════════════════════════
+function updatePlayer(){
+  const p=G.player, spd=0.055;
+  const d=dist(p.x,p.y,p.tx,p.ty);
+  if(d>0.003){ p.x+=(p.tx-p.x)*spd; p.y+=(p.ty-p.y)*spd; }
+  p.x=clamp(p.x,0.04,0.96); p.y=clamp(p.y,0.18,0.92);
+  if(!G.popupLocked){
+    const nearby=G.quests.find(q=>!q.done&&dist(p.x,p.y,q.x,q.y)<0.08);
+    if(nearby){ G.popupLocked=true; openQuest(nearby.id); }
+  }
+}
+
+// 터치/클릭으로 이동 (캔버스)
+function canvasToNorm(clientX,clientY){
+  const r=cv.getBoundingClientRect();
+  return { x:clamp((clientX-r.left)/r.width,0.03,0.97), y:clamp((clientY-r.top)/r.height,0.18,0.94) };
+}
+
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(G.screen!=='game') return;
+  const t=e.touches[0];
+  const p=canvasToNorm(t.clientX,t.clientY);
+  const near=dist(p.x,p.y,G.player.x,G.player.y)<0.10;
+  if(near) G.drag=true;
+  else{ G.player.tx=p.x; G.player.ty=p.y; }
+},{passive:false});
+
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(!G.drag||G.screen!=='game') return;
+  const t=e.touches[0];
+  const p=canvasToNorm(t.clientX,t.clientY);
+  G.player.x=p.x; G.player.y=p.y; G.player.tx=p.x; G.player.ty=p.y;
+},{passive:false});
+
+cv.addEventListener('touchend',e=>{ e.preventDefault(); G.drag=false; },{passive:false});
+
+cv.addEventListener('mousedown',e=>{
+  if(G.screen!=='game') return;
+  const p=canvasToNorm(e.clientX,e.clientY);
+  if(dist(p.x,p.y,G.player.x,G.player.y)<0.10) G.drag=true;
+  else{ G.player.tx=p.x; G.player.ty=p.y; }
+});
+cv.addEventListener('mousemove',e=>{ if(!G.drag||G.screen!=='game') return; const p=canvasToNorm(e.clientX,e.clientY); G.player.x=p.x; G.player.y=p.y; G.player.tx=p.x; G.player.ty=p.y; });
+window.addEventListener('mouseup',()=>{ G.drag=false; });
+
+// 키보드
+window.addEventListener('keydown',e=>{
+  if(G.screen!=='game') return;
+  const s=0.025;
+  if(e.key==='ArrowLeft') G.player.tx=clamp(G.player.tx-s,0.04,0.96);
+  if(e.key==='ArrowRight') G.player.tx=clamp(G.player.tx+s,0.04,0.96);
+  if(e.key==='ArrowUp') G.player.ty=clamp(G.player.ty-s,0.18,0.92);
+  if(e.key==='ArrowDown') G.player.ty=clamp(G.player.ty+s,0.18,0.92);
+});
+
+// ═══════════════════════════════════════════
+// HUD 갱신
+// ═══════════════════════════════════════════
+function refreshHUD(){
+  const next=G.quests.find(q=>!q.done);
+  $('goalText').textContent=next?`${next.title} 지점으로 이동하세요.`:'모든 퀘스트 완료!';
+  const fr=$('fragRow'); fr.innerHTML='';
+  for(let i=0;i<4;i++){ const d=document.createElement('div'); d.className='frag'+(i<G.completedCount?' on':''); fr.appendChild(d); }
+  const qc=$('questChips'); qc.innerHTML='';
+  G.quests.forEach(q=>{ const d=document.createElement('div'); d.className='qchip'+(q.done?' done':''); d.innerHTML=`<span>${q.title}</span><span>${q.done?'✅':'⬜'}</span>`; qc.appendChild(d); });
+}
+
+// ═══════════════════════════════════════════
+// 모달
+// ═══════════════════════════════════════════
+const overlay=$('overlay'), modalBox=$('modalBox');
+
+function openModal(html){
+  modalBox.innerHTML=html;
+  overlay.classList.add('show');
+  stopBGM();
+  playQuizBGM();
+}
+function closeModal(){
+  overlay.classList.remove('show');
+  modalBox.innerHTML='';
+  stopQuizBGM();
+}
+function overlayClick(e){ if(e.target===overlay){ closeModal(); G.popupLocked=false; } }
+
+function modalHead(title,sub){
+  return `<div class="modal-head"><div><div class="modal-title">${title}</div>${sub?`<div class="modal-sub">${sub}</div>`:''}</div></div>`;
+}
+
+// ═══════════════════════════════════════════
+// 퀘스트 시스템
+// ═══════════════════════════════════════════
+function openQuest(id){
+  const q=G.quests.find(x=>x.id===id);
+  $('tip').textContent=`${q.npc}와 만났습니다!`;
+  openModal(`
+    ${modalHead(q.title,q.sub)}
+    <div class="npc-box"><strong>${q.npc}</strong>: 안녕하세요! 이곳의 기록이 흐트러졌어요.<br><strong>${q.title.replace(/^Q\d\.\s/,'')}</strong> 미션을 해결하면 역사 기록 조각을 되찾을 수 있어요.</div>
+    <div class="modal-btns">
+      <button class="btn-modal-ok" onclick="startQuest('${id}')" ontouchstart="startQuest('${id}')">🚀 미션 시작</button>
+    </div>
+  `);
+}
+
+function startQuest(id){ renderQ(id); }
+
+function renderQ(id){
+  const q=G.quests.find(x=>x.id===id);
+  const item=q.qs[q.step];
+  if(!item){ completeQuest(id); return; }
+
+  const leads={
+    q1:['나라의 시작에 대한 단서를 찾아야 합니다.','어느 위치에서 성장했는지 확인해 봅시다.','남쪽 지역의 나라들을 떠올려 보세요.'],
+    q2:['왕이 나라를 잘 다스리려면 무엇이 필요할까요?','왕권의 뜻을 생각해 봅시다.','나라를 체계적으로 다스리는 흐름을 정리해 봅시다.'],
+    q3:['한강 유역이 왜 중요했는지 떠올려 보세요.','지도에서 한강 유역의 중심을 찾아 보세요.','전성기 나라들은 왜 중요 지역을 차지하려 했을까요?'],
+    q4:['유물을 보면 어느 나라의 특징인지 짐작할 수 있어요.','유물은 과거 사람들의 무엇을 알려 줄까요?']
+  };
+  const lead=(leads[id]||[])[q.step]||'문제를 풀어 보세요.';
+  const head=modalHead(q.title,`${q.npc} · ${q.step+1}/${q.qs.length}`);
+  const npc=`<div class="npc-box"><strong>${q.npc}</strong>: ${lead}</div>`;
+
+  if(item.type==='choice'||item.type==='truefalse'||item.type==='order'){
+    const choices=item.type==='truefalse'?['참','거짓']:item.c;
+    openModal(`${head}${npc}
+      <div class="q-title">${item.q}</div>
+      <div class="choices">
+        ${choices.map((c,i)=>`<button class="choice-btn" onclick="answerChoice('${id}',${i})">${c}</button>`).join('')}
+      </div>
+      <div class="feedback" id="fb"></div>
+    `);
+  } else if(item.type==='map'){
+    openModal(`${head}${npc}
+      <div class="q-title">${item.q}</div>
+      <div class="minimap" id="miniMap">
+        <button class="region-btn" style="left:18%;top:14%;" onclick="answerMap('${id}','north')">북쪽</button>
+        <button class="region-btn" style="left:8%;top:50%;" onclick="answerMap('${id}','west')">서쪽</button>
+        <button class="region-btn" style="left:40%;top:42%;" onclick="answerMap('${id}','middle')">가운데</button>
+        <button class="region-btn" style="right:8%;top:46%;" onclick="answerMap('${id}','east')">동쪽</button>
+        <button class="region-btn" style="left:36%;bottom:10%;" onclick="answerMap('${id}','south')">남쪽</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+    `);
+  } else if(item.type==='match'){
+    const shuffledPairs=shuffle(item.pairs);
+    openModal(`${head}${npc}
+      <div class="q-title">${item.q}</div>
+      <div class="match-grid">
+        <div>
+          <h4>유물 카드</h4>
+          <div id="cardList">
+            ${shuffledPairs.map(p=>`<div class="card-item" id="card_${p.label}" onclick="selectCard('${p.label}')">${p.label}</div>`).join('')}
+          </div>
+        </div>
+        <div>
+          <h4>나라 상자</h4>
+          <div id="zoneList">
+            ${item.targets.map(t=>`<div class="zone-item" id="zone_${t}" onclick="assignZone('${id}','${t}')">${t}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-modal-ok" onclick="checkMatch('${id}')" ontouchstart="checkMatch('${id}')">✅ 정답 확인</button>
+        <button class="btn-modal-sub" onclick="resetMatch('${id}')" ontouchstart="resetMatch('${id}')">🔄 다시 놓기</button>
+      </div>
+      <div class="feedback" id="fb"></div>
+    `);
+  }
+}
+
+let selectedCard=null, matchAssign={};
+
+function selectCard(label){
+  // 이미 used 상태면 무시
+  const el=document.getElementById('card_'+label);
+  if(!el||el.classList.contains('used')) return;
+  // 기존 선택 해제
+  document.querySelectorAll('.card-item').forEach(c=>c.classList.remove('selected'));
+  if(selectedCard===label){ selectedCard=null; return; }
+  selectedCard=label;
+  el.classList.add('selected');
+}
+
+function assignZone(id,country){
+  if(!selectedCard) return;
+  const q=G.quests.find(x=>x.id===id);
+  const item=q.qs[q.step];
+  // 이미 이 카드가 다른 존에 있으면 해제
+  Object.keys(matchAssign).forEach(k=>{ if(matchAssign[k]===selectedCard){ delete matchAssign[k]; const z=document.getElementById('zone_'+k); if(z){z.textContent=k; z.classList.remove('filled');} } });
+  // 이 존에 기존 카드 있으면 복구
+  if(matchAssign[country]){
+    const old=matchAssign[country];
+    const oc=document.getElementById('card_'+old); if(oc){oc.classList.remove('used');}
+  }
+  matchAssign[country]=selectedCard;
+  const zEl=document.getElementById('zone_'+country);
+  if(zEl){ zEl.textContent=`${country} ← ${selectedCard}`; zEl.classList.add('filled'); }
+  const cEl=document.getElementById('card_'+selectedCard);
+  if(cEl){ cEl.classList.remove('selected'); cEl.classList.add('used'); }
+  selectedCard=null;
+}
+
+function resetMatch(id){
+  matchAssign={};
+  const q=G.quests.find(x=>x.id===id);
+  const item=q.qs[q.step];
+  item.targets.forEach(t=>{ const z=document.getElementById('zone_'+t); if(z){z.textContent=t; z.classList.remove('filled');} });
+  document.querySelectorAll('.card-item').forEach(c=>{ c.classList.remove('used','selected'); });
+  selectedCard=null;
+}
+
+function checkMatch(id){
+  const q=G.quests.find(x=>x.id===id);
+  const item=q.qs[q.step];
+  if(item.targets.some(t=>!matchAssign[t])){
+    showFB(false,'아직 비어 있는 나라 상자가 있어요. 모두 연결해 보세요.'); return;
+  }
+  const ok=item.pairs.every(p=>matchAssign[p.answer]===p.label);
+  showFB(ok,item.fb,()=>{ matchAssign={}; selectedCard=null; q.step++; renderQ(id); });
+}
+
+function answerChoice(id,idx){
+  const q=G.quests.find(x=>x.id===id);
+  const item=q.qs[q.step];
+  let ok;
+  if(item.type==='truefalse') ok=(idx===0)===item.a;
+  else ok=idx===item.a;
+  showFB(ok,item.fb,()=>{ q.step++; renderQ(id); });
+}
+
+function answerMap(id,region){
+  const q=G.quests.find(x=>x.id===id);
+  const item=q.qs[q.step];
+  const ok=region===item.a;
+  showFB(ok,item.fb,()=>{ q.step++; renderQ(id); });
+}
+
+function showFB(ok,text,onOk){
+  const fb=document.getElementById('fb');
+  if(!fb) return;
+  fb.className='feedback '+(ok?'ok':'ng');
+  fb.textContent=ok?`⭕ 정답! ${text}`:'❌ 다시 생각해 보세요. 힌트: 단원의 핵심 내용을 떠올려 보세요.';
+  if(ok){ playOK(); if(onOk) setTimeout(onOk,900); }
+  else playNG();
+}
+
+function completeQuest(id){
+  const q=G.quests.find(x=>x.id===id);
+  q.done=true; G.completedCount++;
+  refreshHUD(); sparkles(); playOK();
+  openModal(`
+    ${modalHead(q.title,'퀘스트 완료! 🎉')}
+    <div class="npc-box"><strong>${q.npc}</strong>: 훌륭해요! 역사 기록 조각 하나가 복원되었습니다!<br>지금까지 모은 기록 조각: <strong>${G.completedCount} / 4</strong> ✦</div>
+    <div class="modal-btns">
+      <button class="btn-modal-ok" onclick="continueGame()" ontouchstart="continueGame()">🗺️ 계속 탐험하기</button>
+    </div>
+  `);
+}
+
+function continueGame(){
+  closeModal();
+  G.popupLocked=false;
+  if(G.completedCount>=4) setTimeout(showResult,300);
+  else $('tip').textContent='좋아요! 다음 퀘스트 지점을 찾아보세요.';
+}
+
+function showResult(){
+  stopBGM(); stopQuizBGM();
+  showScreen('result'); sparkles();
+}
+
+function sparkles(){
+  for(let i=0;i<12;i++){
+    const s=document.createElement('div'); s.className='sparkle';
+    s.style.left=(20+Math.random()*60)+'vw'; s.style.top=(30+Math.random()*40)+'vh';
+    s.style.animationDelay=(Math.random()*0.3)+'s';
+    document.body.appendChild(s); setTimeout(()=>s.remove(),1100);
+  }
+}
+
+// ═══════════════════════════════════════════
+// 조작 방법 팝업
+// ═══════════════════════════════════════════
+function showHelp(){
+  openModal(`
+    ${modalHead('조작 방법 안내')}
+    <div class="npc-box">
+      1. 화면을 터치(또는 클릭)하면 그 위치로 캐릭터가 이동해요.<br>
+      2. 캐릭터를 직접 드래그해서 움직일 수도 있어요.<br>
+      3. 반짝이는 건물 가까이 가면 퀘스트가 시작돼요.<br>
+      4. 문제를 모두 풀면 역사 기록 조각이 복원됩니다!<br><br>
+      <strong>유물 연결 문제</strong>: 왼쪽 카드를 탭해 선택(주황 테두리) 후, 오른쪽 나라 상자를 탭하면 연결돼요.
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-ok" onclick="closeModal()" ontouchstart="closeModal()">확인</button>
+    </div>
+  `);
+}
+
+// ═══════════════════════════════════════════
+// 게임 시작 / 재시작
+// ═══════════════════════════════════════════
+let _lastAction=0;
+function _debounce(fn){
+  const now=Date.now();
+  if(now-_lastAction<600) return; // 600ms 내 중복 실행 방지
+  _lastAction=now;
+  fn();
+}
+
+function startGame(){
+  _debounce(()=>{
+  getAC();
+  stopBGM(); stopTitleBg();
+  // 리셋
+  G.completedCount=0; G.popupLocked=false; G.drag=false;
+  G.player={x:0.12,y:0.72,tx:0.12,ty:0.72};
+  G.quests.forEach(q=>{q.done=false;q.step=0;});
+  matchAssign={}; selectedCard=null;
+  showScreen('game');
+  resizeCv(); refreshHUD();
+  $('tip').textContent='화면을 터치해 캐릭터를 이동하세요';
+  }); // end debounce
+}
+
+function restartGame(){
+  showScreen('start');
+  setTimeout(()=>{ startTitleBg(); if(!G.muted) playBGM(); },100);
+}
+
+// ═══════════════════════════════════════════
+// 메인 루프
+// ═══════════════════════════════════════════
+function loop(){
+  if(G.screen==='game'){ updatePlayer(); drawWorld(); }
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════
+// 초기화
+// ═══════════════════════════════════════════
+window.addEventListener('resize',()=>{ if(G.screen==='game') resizeCv(); });
+
+// 시작화면 배경 시작
+startTitleBg();
+
+// BGM: 첫 터치/클릭 시작 (iOS 정책)
+function tryStartBGM(){
+  getAC();
+  if(!G.muted && G.screen==='start' && !bgmOn) playBGM();
+}
+document.addEventListener('touchend', tryStartBGM, {once:true, passive:true});
+document.addEventListener('click', tryStartBGM, {once:true});
+
+loop();
+</script>
+</body>
+</html>
